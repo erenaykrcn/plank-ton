@@ -1,0 +1,6 @@
+Examples of classical algorithms:
+ - https://en.wikipedia.org/wiki/Markowitz_model
+ - https://en.wikipedia.org/wiki/Post-modern_portfolio_theory
+ - https://en.wikipedia.org/wiki/Stochastic_portfolio_theory
+ - https://en.wikipedia.org/wiki/Hierarchical_Risk_Parity
+ - https://en.wikipedia.org/wiki/Merton%27s_portfolio_problem
