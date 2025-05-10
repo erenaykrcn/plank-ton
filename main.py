@@ -1,7 +1,9 @@
 import portfolio
 import copy
 import pandas as pd
-def run(input_data,solver_params,extra_arguments):
+
+
+def run(input_data, solver_params, extra_arguments):
     from_=input_data['from']
     to_=input_data['to']
     assets=input_data['assets']
@@ -20,6 +22,8 @@ def run(input_data,solver_params,extra_arguments):
             assets_[asset]['history']={x:assets_[asset]['history'][x] for x in assets_[asset]['history'] if x<t}
         d['assets']=assets_
         d['evaluation_date']=t
+
+        
         r=portfolio.run(d)['selected_assets_weights']
         gain=0
         for asset in r:
