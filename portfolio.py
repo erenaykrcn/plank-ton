@@ -92,11 +92,9 @@ def run(input_data):
     # constraint and the fact that only
     # an integer multiple of each stock can be bought. 
     # This is to avoid unspent budget/overspending.
-
     P_p = [P[i]/B for i in range(L)]
     mu_p = [mu[i]*P_p[i] for i in range(L)]
     Sigma_p = [[P_p[i]*P_p[j]*Sigma[i][j] for j in range(L)] for i in range(L)]
-
     # Convert to Binary transformation.
     C = [[] for i in range(L)]
     for i in range(L):
@@ -106,7 +104,7 @@ def run(input_data):
         for j in range(i+1, L):
             C[i] += [0]*int(D[j])
     C = np.array(C)
-
+    # Binary parameter matrices.
     mu_pp = C.T @ mu_p
     Sigma_pp = C.T @ Sigma_p @ C
     P_pp = C.T @ P_p
@@ -125,6 +123,9 @@ def run(input_data):
     h = [-0.5*mu_pp[i] + 0.5*q*(Sigma_pp@np.array([1 for j in range(N)]))[i] for i in range(N)]
     pi = [P_pp[i]/2 for i in range(N)]
     beta = 1 - np.sum(np.array([P_pp[i]/2 for i in range(N)]))
+
+    # Exact spectrum, because this is a toy problem.
+    eigenvectors_sort = get_eigs(J, h, pi, lamb, beta, N)
 
 
     # We start the quantum protocol now. We'll apply successive 
@@ -178,18 +179,24 @@ def run(input_data):
                                                        # a more efficient version such that we could 
                                                        # simulate with more qubits then circa 10 :)
     qc_RQC = qiskit.QuantumCircuit(N+1, N+1)
-    qc_RQC.initialize(np.kron(ket_0, vec))
+    aR = np.kron(ket_0, vec) # current state_vector, we initialize it randomly in the very beginning.
     for qc_qetu in qcs_qetu:
         # We apply QETU circuits one by one. In between each QETU sequence, we need to measure
         # the ancilla qubit and make sure its measured as 0. If it's measured as 1 the sequence is
         # canceled and we start over. Measuring the ancilla this way as 0 is probabilistic. 
         # This code implementation reports the success probability of measuring the ancilla as 0
         # at each filtering stage.
+        qc_RQC = qiskit.QuantumCircuit(N+1, N+1)
+        qc_RQC.initialize(aR)
         qc_RQC.append(qc_qetu.to_gate(), [i for i in range(N+1)])
-        bR = execute(transpile(qc_RQC), backend).result().get_statevector().data
-        aR = np.kron(np.array([[1,0],[0,0]]), np.identity(2**N)) @ bR
+        bR = execute(transpile(qc_RQC), backend).result().get_statevector().data # before ancilla-measurement 
+                                                                                 # state vector
+        aR = np.kron(np.array([[1,0],[0,0]]), np.identity(2**N)) @ bR            # after ancilla-measurement 
+                                                                                 # state vector
         print("Projecting the ancilla qubit onto 0 with success prob: ", np.linalg.norm(aR)**2)
         aR = aR / np.linalg.norm(aR)
+        print("Ground state overlap after this filtering layer: ", state_fidelity(
+            aR[:2**N], eigenvectors_sort[:, 0]))
         qc_RQC.reset([i for i in range(N+1)])
         qc_RQC.initialize(aR)
 
@@ -260,3 +267,63 @@ def trotterized_time_evolution(J, h, pi, lamb, beta, t, L):
     )
     qc.x(L-1)
     return qc
+
+
+def get_eigs(J, h, pi, lamb, beta, N):
+    from numpy import linalg as LA
+
+    Z = np.array([[1.,  0.], [0., -1.]])
+    I = np.identity(2)
+
+    hamil1 = 0 * np.identity(2**N)
+    for i in range(N):
+        for j in range(N):
+            Z_exp1 = np.identity(1)
+            for _ in range(i):
+                Z_exp1 = np.kron(Z_exp1, I)
+            Z_exp1 = np.kron(Z_exp1, Z)
+            for _ in range(i+1, N):
+                Z_exp1 = np.kron(Z_exp1, I)
+
+            Z_exp2 = np.identity(1)
+            for _ in range(j):
+                Z_exp2 = np.kron(Z_exp2, I)
+            Z_exp2 = np.kron(Z_exp2, Z)
+            for _ in range(j+1, N):
+                Z_exp2 = np.kron(Z_exp2, I)
+            Z_exp = Z_exp1 @ Z_exp2
+            hamil1 = hamil1 + J[i][j] * Z_exp
+
+
+    hamil2 = 0 * np.identity(2**N)
+    for i in range(N):
+        Z_exp = np.identity(1)
+        for _ in range(i):
+            Z_exp = np.kron(Z_exp, I)
+        Z_exp = np.kron(Z_exp, Z)
+        for _ in range(i+1, N):
+            Z_exp = np.kron(Z_exp, I)
+        hamil2 = hamil2 + h[i] * Z_exp
+    hamil = hamil1 + hamil2
+
+
+    penal = 0 * np.identity(2**N)
+    for i in range(N):
+        Z_exp = np.identity(1)
+        for _ in range(i):
+            Z_exp = np.kron(Z_exp, I)
+        Z_exp = np.kron(Z_exp, Z)
+        for _ in range(i+1, N):
+            Z_exp = np.kron(Z_exp, I)
+        penal = penal + pi[i] * Z_exp
+    penal = penal - beta * np.identity(2**N)
+    penal = penal @ penal
+    hamil = hamil + lamb * penal
+
+    eigenvalues, eigenvectors = LA.eig(hamil)
+    idx = eigenvalues.argsort()
+    eigenvalues_sort = eigenvalues[idx]
+    eigenvectors_sort = eigenvectors[:,idx]
+    return eigenvectors_sort
+
+
