@@ -64,7 +64,6 @@ def run(input_data):
                 mu_filtered.append(mu[index])
                 r_filtered.append(r[index])
                 p_filtered.append(p[index])
-                print('here')
         else:
             mu_filtered.append(mu[index])
             r_filtered.append(r[index])
