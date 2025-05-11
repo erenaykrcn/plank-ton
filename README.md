@@ -2,20 +2,20 @@
 
 We propose and implement a non variational, purely quantum algorithm to perform a 
 "Integer Constraint", Portfolio Optimization problem - inspired by the Hamiltonian simulation
-quantum algortihms. \\
+quantum algortihms. 
 
 We make a mapping between {0, 1} binary variables of integers and {-1, 1} spin variables of
 being up and down. The inherently discrete nature of quantum states allow us to optimize 
 the number of stocks an investor should buy, over a distibution of binary digits for each 
-asset.\\
+asset.
 
 Our implementation showcases the purely quantum protocol over a small number of assets after
 an initial filtering of many assets. This is due to the small number of qubits we can 
 simulate with statevector simulations. If one wants to optimize over a larger subset of assets,
-one should equivalently provide a larger qubit budget for the algorithm.\\
+one should equivalently provide a larger qubit budget for the algorithm.
 
 In our implementation the budget for the total number of qubits, the number of assets to optimize over after an initial (trivial) filtering, risk aversion parameter of the investor, an optional total budget constraint and the penalty parameter for not exceeding this budget
-can be configured freely by the user. In the code, we hard-coded these parameters.\\
+can be configured freely by the user. In the code, we hard-coded these parameters.
 
 For the initial filtering, we compute the expected returns of each asset, sort them out and take the highest l number of assets to be considered in the quantum optimization protocol to reduce the
 data set. This number l can be increased by the user if the user can also accommodate more qubits 
