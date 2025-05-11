@@ -53,10 +53,27 @@ def run(input_data):
     mu_filtered = []
     r_filtered = []
     p_filtered = []
-    for index in indices[-filtering_number:]:
-        mu_filtered.append(mu[index])
-        r_filtered.append(r[index])
-        p_filtered.append(p[index])
+
+    selected_assets_number = 0
+    indices_reversed = indices[::-1]
+    for index in indices_reversed:
+        if selected_assets_number>0:
+            ratio = np.abs(np.log(p_filtered[0][-1] / p[index][-1]))
+            if ratio<2:
+                selected_assets_number += 1
+                mu_filtered.append(mu[index])
+                r_filtered.append(r[index])
+                p_filtered.append(p[index])
+                print('here')
+        else:
+            mu_filtered.append(mu[index])
+            r_filtered.append(r[index])
+            p_filtered.append(p[index])
+            selected_assets_number += 1
+            
+        if selected_assets_number >= filtering_number:
+            break
+
 
     mu = mu_filtered
     r = r_filtered
@@ -69,13 +86,20 @@ def run(input_data):
     # the higher of a 'filtering_number' you can choose and optimize over
     # a larger set of assets. For our simulation reasons, we hard-code a very low
     # number of qubits as budget - as we'll use state_vector simulations.
-    N = 8 # User input, algortihm will use N +- 1 many qubits.
+    N = 7 # User input, algortihm will use N +- 1 many qubits.
+
 
     N = N - 1
     # Qubit budget is translated into an absolute budget B by using stock prices after filtering.
     # User can also hard-code the budget here, allows for more capability.
-    B = 2**((np.sum(np.array([np.log(price)/np.log(2) for price in P])) + N)/filtering_number)
+    B = 2**((np.sum(np.array([np.log(price)/np.log(2) for price in P])) + N)/filtering_number) 
     n_max = [np.floor(B/P[i]) for i in range(L)]
+    if 0.0 in n_max:
+        B += np.sum(np.array(P)) # If after the initial filtering the automatically calculated budget is lower than the 
+                                 # the most expensive stock price, we put a base budget of allowing at least one stock
+                                 # purchase for each asset.
+        n_max = [np.floor(B/P[i]) for i in range(L)]
+        
     D = [np.ceil(np.log(n_max[i])/np.log(2)) for i in range(L)]
     N = int(np.sum(np.array(D)))
 
@@ -125,7 +149,7 @@ def run(input_data):
     beta = 1 - np.sum(np.array([P_pp[i]/2 for i in range(N)]))
 
     # Exact spectrum, because this is a toy problem.
-    eigenvectors_sort = get_eigs(J, h, pi, lamb, beta, N)
+    #eigenvectors_sort = get_eigs(J, h, pi, lamb, beta, N)
 
 
     # We start the quantum protocol now. We'll apply successive 
@@ -195,8 +219,8 @@ def run(input_data):
                                                                                  # state vector
         print("Projecting the ancilla qubit onto 0 with success prob: ", np.linalg.norm(aR)**2)
         aR = aR / np.linalg.norm(aR)
-        print("Ground state overlap after this filtering layer: ", state_fidelity(
-            aR[:2**N], eigenvectors_sort[:, 0]))
+        #print("Ground state overlap after this filtering layer: ", state_fidelity(
+        #    aR[:2**N], eigenvectors_sort[:, 0]))
         qc_RQC.reset([i for i in range(N+1)])
         qc_RQC.initialize(aR)
 
@@ -270,6 +294,7 @@ def trotterized_time_evolution(J, h, pi, lamb, beta, t, L):
 
 
 def get_eigs(J, h, pi, lamb, beta, N):
+    # Returns the exact spectrum of the Ising model.
     from numpy import linalg as LA
 
     Z = np.array([[1.,  0.], [0., -1.]])
